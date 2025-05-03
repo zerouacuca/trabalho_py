@@ -33,6 +33,22 @@ def main():
     x2, y2 = map(int, saida2.split())
     print(f"Coordenada2 recebida: {saida2}")
 
+    # Executa gera_malha.py
+    print("Executando gera_malha.py...")
+    resultado_malha = subprocess.run(
+        ['python', 'gera_malha.py', mapa_arquivo, str(x1), str(y1), str(x2), str(y2), str(R)],
+        capture_output=True, text=True
+    )
+    saida_malha = resultado_malha.stdout.strip()
+    malha_coords = []
+    if saida_malha:
+        for linha in saida_malha.splitlines():
+            parts = linha.strip().split()
+            if len(parts) == 2:
+                xi, yi = map(int, parts)
+                malha_coords.append((xi, yi))
+    print(f"{len(malha_coords)} círculos adicionais foram gerados.")
+
     # Carrega o mapa e plota
     mapa = np.loadtxt(mapa_arquivo)
     plt.figure(figsize=(8, 8))
@@ -46,12 +62,18 @@ def main():
     circle2 = plt.Circle((y2, x2), R, color='red', fill=False, linewidth=2, label='Círculo 2')
     plt.gca().add_patch(circle2)
 
-    # Marcar os centros
+    # Marcar os centros dos dois primeiros
     plt.plot(y1, x1, 'bo')  # Centro 1
     plt.plot(y2, x2, 'ro')  # Centro 2
 
+    # Plota os círculos adicionais
+    for xi, yi in malha_coords:
+        circle_extra = plt.Circle((yi, xi), R, color='green', fill=False, linewidth=1)
+        plt.gca().add_patch(circle_extra)
+        plt.plot(yi, xi, 'go', markersize=3)  # Marca o centro pequeno
+
     plt.legend()
-    plt.title("Mapa com dois círculos")
+    plt.title("Mapa com malha de círculos")
     plt.xlabel("Eixo X")
     plt.ylabel("Eixo Y")
     plt.show()
