@@ -1,82 +1,56 @@
+# main.py
 import subprocess
-import matplotlib.pyplot as plt
 import numpy as np
+import matplotlib.pyplot as plt
+import sys
+from gera_malha import gerar_malha
 
-def main():
-    mapa_arquivo = 'mapa.dat'
-
-    # Pergunta o valor do raio
-    R = float(input("Digite o raio do círculo (em unidades do mapa): "))
-
-    # Executa coordenada1.py
-    print("Executando coordenada1.py...")
-    resultado1 = subprocess.run(
-        ['python', 'coordenada1.py', mapa_arquivo, str(R)],
-        capture_output=True, text=True
-    )
-    saida1 = resultado1.stdout.strip()
-
-    if saida1 == "None":
-        print("Nenhuma coordenada válida encontrada pela coordenada1.py.")
-        return
-
-    print(f"Coordenada1 recebida: {saida1}")
-    x1, y1 = map(int, saida1.split())
-
-    # Executa coordenada2.py
-    print("Executando coordenada2.py...")
-    resultado2 = subprocess.run(
-        ['python', 'coordenada2.py', str(x1), str(y1), str(R)],
-        capture_output=True, text=True
-    )
-    saida2 = resultado2.stdout.strip()
-    x2, y2 = map(int, saida2.split())
-    print(f"Coordenada2 recebida: {saida2}")
-
-    # Executa gera_malha.py
-    print("Executando gera_malha.py...")
-    resultado_malha = subprocess.run(
-        ['python', 'gera_malha.py', mapa_arquivo, str(x1), str(y1), str(x2), str(y2), str(R)],
-        capture_output=True, text=True
-    )
-    saida_malha = resultado_malha.stdout.strip()
-    malha_coords = []
-    if saida_malha:
-        for linha in saida_malha.splitlines():
-            parts = linha.strip().split()
-            if len(parts) == 2:
-                xi, yi = map(int, parts)
-                malha_coords.append((xi, yi))
-    print(f"{len(malha_coords)} círculos adicionais foram gerados.")
-
-    # Carrega o mapa e plota
-    mapa = np.loadtxt(mapa_arquivo)
-    plt.figure(figsize=(8, 8))
-    plt.imshow(mapa, cmap='gray', origin='lower')
-
-    # Plota o primeiro círculo
-    circle1 = plt.Circle((y1, x1), R, color='blue', fill=False, linewidth=2, label='Círculo 1')
-    plt.gca().add_patch(circle1)
-
-    # Plota o segundo círculo
-    circle2 = plt.Circle((y2, x2), R, color='red', fill=False, linewidth=2, label='Círculo 2')
-    plt.gca().add_patch(circle2)
-
-    # Marcar os centros dos dois primeiros
-    plt.plot(y1, x1, 'bo')  # Centro 1
-    plt.plot(y2, x2, 'ro')  # Centro 2
-
-    # Plota os círculos adicionais
-    for xi, yi in malha_coords:
-        circle_extra = plt.Circle((yi, xi), R, color='green', fill=False, linewidth=1)
-        plt.gca().add_patch(circle_extra)
-        plt.plot(yi, xi, 'go', markersize=3)  # Marca o centro pequeno
-
-    plt.legend()
-    plt.title("Mapa com malha de círculos")
-    plt.xlabel("Eixo X")
-    plt.ylabel("Eixo Y")
-    plt.show()
+def ler_mapa(caminho):
+    return np.loadtxt(caminho)
 
 if __name__ == "__main__":
-    main()
+    mapa_path = "mapa.dat"
+    R = 50
+
+    ##if len(sys.argv) != 3:
+    ##      print("Uso: python main.py <mapa.txt> <R>")
+    ##        sys.exit(1)
+
+    ##mapa_path = sys.argv[1]
+    ##R = float(sys.argv[2])
+    mapa = ler_mapa(mapa_path)
+
+    # Executa seeds.py e lê coordenadas
+    saida = subprocess.check_output(["python", "seeds.py", str(R)], text=True)
+    linhas = saida.strip().splitlines()
+
+    x1, y1 = map(float, linhas[0].split())  # Coordenada 1 (translacao)
+    x2, y2 = map(float, linhas[1].split())  # Coordenada 2
+    angulo = float(linhas[2])              # Angulo em radianos
+
+    coords_malha = gerar_malha(x1, y1, x2, y2, R, mapa)
+
+    # Agora todas as variaveis estao armazenadas em memoria:
+    # x1, y1, angulo, coords_malha
+
+    # Plotagem
+    fig, ax = plt.subplots()
+    ax.imshow(mapa.T, origin='lower', cmap='gray')
+    ax.set_title("Mapa com malha de círculos")
+    ax.set_xlabel("Eixo X")
+    ax.set_ylabel("Eixo Y")
+
+    for cx, cy in coords_malha:
+        ax.add_patch(plt.Circle((cx, cy), R, fill=False, edgecolor='blue'))
+        ax.plot(cx, cy, 'b.', markersize=3)
+
+    ax.plot(x1, y1, 'go')
+    ax.add_patch(plt.Circle((x1, y1), R, fill=False, linestyle='--', edgecolor='green', linewidth=1.5, label="Círculo 1 (fixo)"))
+
+    ax.plot(x2, y2, 'ro')
+    ax.add_patch(plt.Circle((x2, y2), R, fill=False, linestyle='--', edgecolor='red', linewidth=1.5, label="Círculo 2 (ângulo)"))
+
+    ax.legend(loc='upper right')
+    plt.axis('equal')
+    plt.tight_layout()
+    plt.show()

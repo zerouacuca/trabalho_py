@@ -1,26 +1,14 @@
-import sys
 import numpy as np
-
-def ler_mapa(arquivo):
-    return np.loadtxt(arquivo)
 
 def gerar_malha(x1, y1, x2, y2, R, mapa):
     """
-    Gera uma malha de círculos com distância constante R*sqrt(3) entre si,
-    aceitando círculos cujo CENTRO esteja na Área A (mesmo que partes do círculo invadam Área B).
-
-    Args:
-        x1, y1, x2, y2: coordenadas dos dois primeiros círculos.
-        R: raio do círculo.
-        mapa: matriz numpy carregada.
-
-    Returns:
-        Lista de coordenadas [(x, y), ...]
+    Gera uma malha hexagonal a partir dos pontos (x1, y1) e (x2, y2) com raio R,
+    cobrindo a Área A (mapa == 1).
     """
     coords = []
     max_x, max_y = mapa.shape
 
-    # Vetor base (direção da linha principal)
+    # Vetor base (direção principal)
     dx = x2 - x1
     dy = y2 - y1
     distancia_base = np.sqrt(dx**2 + dy**2)
@@ -33,30 +21,26 @@ def gerar_malha(x1, y1, x2, y2, R, mapa):
     ux = dx / distancia_base
     uy = dy / distancia_base
 
-    # Vetor perpendicular (para deslocar linhas)
+    # Vetor perpendicular (para linhas)
     perp_ux = -uy
     perp_uy = ux
 
-    # Distâncias importantes
-    dist_entre_circulos = R * np.sqrt(3)
-    dist_entre_linhas = (3 / 2) * R
-    fase = 0.5 * R * np.sqrt(3)
+    # Distâncias entre centros
+    dist_entre_circulos = R * np.sqrt(3)      # entre colunas
+    dist_entre_linhas = (3 / 2) * R           # entre linhas
+    fase = 0.5 * R * np.sqrt(3)               # deslocamento para colunas ímpares
 
-    # Determinar faixa suficiente para cobrir toda a área do mapa
-    linha_min = -int((max_x + max_y) / dist_entre_linhas) - 1
-    linha_max = int((max_x + max_y) / dist_entre_linhas) + 1
-    coluna_min = -int((max_x + max_y) / dist_entre_circulos) - 1
-    coluna_max = int((max_x + max_y) / dist_entre_circulos) + 1
+    # Calcular alcance necessário para cobrir o mapa inteiro
+    diag = np.sqrt(max_x**2 + max_y**2)
+    max_linhas = int(diag / dist_entre_linhas) + 5
+    max_colunas = int(diag / dist_entre_circulos) + 5
 
-    for linha in range(linha_min, linha_max):
-        # Deslocamento perpendicular
+    for linha in range(-max_linhas, max_linhas + 1):
         offset_x = linha * dist_entre_linhas * perp_ux
         offset_y = linha * dist_entre_linhas * perp_uy
+        fase_offset = (linha % 2) * fase
 
-        # Fase alternada para linhas ímpares
-        fase_offset = (abs(linha) % 2) * fase
-
-        for coluna in range(coluna_min, coluna_max):
+        for coluna in range(-max_colunas, max_colunas + 1):
             desloc_x = (coluna * dist_entre_circulos + fase_offset) * ux
             desloc_y = (coluna * dist_entre_circulos + fase_offset) * uy
 
@@ -66,31 +50,8 @@ def gerar_malha(x1, y1, x2, y2, R, mapa):
             cx_int = int(round(cx))
             cy_int = int(round(cy))
 
-            # Apenas checar se o CENTRO está na Área A
-            if (0 <= cx_int < max_x) and (0 <= cy_int < max_y):
+            if 0 <= cx_int < max_x and 0 <= cy_int < max_y:
                 if mapa[cx_int, cy_int] == 1:
                     coords.append((cx_int, cy_int))
 
     return coords
-
-if __name__ == "__main__":
-    if len(sys.argv) != 7:
-        print("Uso: python gera_malha.py <arquivo_mapa> <x1> <y1> <x2> <y2> <R>")
-        sys.exit(1)
-
-    arquivo_mapa = sys.argv[1]
-    x1 = float(sys.argv[2])
-    y1 = float(sys.argv[3])
-    x2 = float(sys.argv[4])
-    y2 = float(sys.argv[5])
-    R = float(sys.argv[6])
-
-    mapa = ler_mapa(arquivo_mapa)
-
-    malha = gerar_malha(x1, y1, x2, y2, R, mapa)
-
-    if not malha:
-        print("Nenhuma coordenada válida encontrada para a malha.")
-    else:
-        for c in malha:
-            print(f"{c[0]} {c[1]}")
